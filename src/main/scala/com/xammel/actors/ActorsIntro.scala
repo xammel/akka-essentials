@@ -64,8 +64,43 @@ object ActorsIntro {
     }
   }
 
+  /** Exercises
+    *   1. Define two "person" actor behaviors, which receive Strings:
+    *      - "happy", which logs your message, e.g. "I've received ____. That's great!"
+    *      - "sad", .... "That sucks." Test both.
+    *
+    * 2. Change the actor behavior:
+    *   - the happy behavior will turn to sad() if it receives "Akka is bad."
+    *   - the sad behavior will turn to happy() if it receives "Akka is awesome!"
+    *
+    * 3. Inspect my code and try to make it better.
+    */
+
+  object Ex1 {
+    def apply(): Behavior[String] = Behaviors.receive { (context, message) =>
+      if (message.trim == "happy") context.log.info(s"I've received $message. That's great!")
+      else if (message.trim == "sad") context.log.info(s"I've received $message. That sucks")
+      else context.log.error("Message not recognised")
+
+      Behaviors.same
+    }
+  }
+
+  def ex1Demo: Unit = {
+    val actorSystem = ActorSystem(Ex1(), "Ex1ActorSystem")
+
+    actorSystem ! "happy"
+    actorSystem ! "sad"
+    actorSystem ! "weird message"
+
+    // 4 - shut down
+    Thread.sleep(1000)
+    actorSystem.terminate()
+  }
+
   def main(args: Array[String]): Unit = {
-    demoSimpleActor
+//    demoSimpleActor
+    ex1Demo
   }
 
 }
