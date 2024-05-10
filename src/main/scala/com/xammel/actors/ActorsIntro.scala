@@ -1,6 +1,6 @@
 package com.xammel.actors
 
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorSystem, Behavior}
 
 object ActorsIntro {
@@ -76,21 +76,40 @@ object ActorsIntro {
     * 3. Inspect my code and try to make it better.
     */
 
-  object Ex1 {
-    def apply(): Behavior[String] = Behaviors.receive { (context, message) =>
-      if (message.trim == "happy") context.log.info(s"I've received $message. That's great!")
-      else if (message.trim == "sad") context.log.info(s"I've received $message. That sucks")
-      else context.log.error("Message not recognised")
+  object Person {
 
-      Behaviors.same
+    def logError(context: ActorContext[_]) = context.log.error("Message not recognised")
+
+    def happy(): Behavior[String] = Behaviors.receive { (context, message) =>
+      if (message.trim == "Akka is bad") {
+        context.log.info("becoming sad")
+        sad()
+      } else {
+        context.log.info(s"I've received $message. That's great!")
+        Behaviors.same
+      }
     }
+    def sad(): Behavior[String] = Behaviors.receive { (context, message) =>
+      if (message.trim == "Akka is awesome") {
+        context.log.info("becoming happy")
+        happy()
+      } else {
+        context.log.info(s"I've received $message. That sucks")
+        Behaviors.same
+      }
+    }
+
+    def apply(): Behavior[String] = happy()
   }
 
-  def ex1Demo: Unit = {
-    val actorSystem = ActorSystem(Ex1(), "Ex1ActorSystem")
+  def personDemo: Unit = {
+    val actorSystem = ActorSystem(Person(), "Person")
 
-    actorSystem ! "happy"
-    actorSystem ! "sad"
+    actorSystem ! "hello"
+    actorSystem ! "Akka is bad"
+    actorSystem ! "hello"
+    actorSystem ! "Akka is awesome"
+    actorSystem ! "hello"
     actorSystem ! "weird message"
 
     // 4 - shut down
@@ -98,9 +117,40 @@ object ActorsIntro {
     actorSystem.terminate()
   }
 
+  // Ex 3
+  object WeirdActor{
+    // messages of type int and string
+
+    def apply(): Behavior[WeirdMessage] = Behaviors.receive{(ctx, message) =>
+      message match {
+        case WeirdInt(i) =>
+          ctx.log.info(s"Received Int: $i")
+          Behaviors.same
+        case WeirdString(str) =>
+          ctx.log.info(s"Received String: $str")
+          Behaviors.same
+      }
+    }
+  }
+
+  def demoWeirdActor(): Unit = {
+    val weirdActor = ActorSystem(WeirdActor(), "WeirdActorDemo")
+
+    weirdActor ! WeirdInt(1)
+    weirdActor ! WeirdString("hi")
+
+    Thread.sleep(1000)
+    weirdActor.terminate()
+  }
+
+  sealed trait WeirdMessage
+  case class WeirdInt(i: Int) extends WeirdMessage
+  case class WeirdString(s: String) extends WeirdMessage
+
   def main(args: Array[String]): Unit = {
 //    demoSimpleActor
-    ex1Demo
+//    personDemo
+    demoWeirdActor()
   }
 
 }
