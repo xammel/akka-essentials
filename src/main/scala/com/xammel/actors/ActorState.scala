@@ -122,7 +122,7 @@ object ActorState {
   object WordCounterStateless {
 
     def increment(total: Int): Behavior[String] = Behaviors.receive { (ctx, message) =>
-      val split = message.split(" ").filter(_.nonEmpty)
+      val split    = message.split(" ").filter(_.nonEmpty)
       val newCount = split.length
       val newTotal = total + newCount
       ctx.log.info(s"Message word count: $newCount, total: $newTotal")
