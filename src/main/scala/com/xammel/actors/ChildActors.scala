@@ -2,6 +2,7 @@ package com.xammel.actors
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import com.xammel.actors.ChildActors.Parent.Command
 
 object ChildActors {
 
@@ -22,30 +23,37 @@ object ChildActors {
     sealed trait Command
     case class CreateChild(name: String)  extends Command
     case class TellChild(message: String) extends Command
+    case object StopChild                 extends Command
 
     def active(childRef: ActorRef[String]): Behavior[Command] = Behaviors.receive { (ctx, msg) =>
       msg match {
-        case CreateChild(name) =>
+        case CreateChild(_) =>
           ctx.log.info(s"Command not supported now")
           Behaviors.same
         case TellChild(message) =>
           ctx.log.info(s"Sending message to child")
           childRef ! message
           Behaviors.same
+        case StopChild =>
+          ctx.log.info(s"[${ctx.self.path.name}] Stopping the child")
+          ctx.stop(childRef) // Will only work for a child actor. won't work for other ActorRefs
+          apply()
       }
     }
 
-    def apply(): Behavior[Command] = Behaviors.receive { (ctx, msg) =>
+    def idle: Behavior[Command] = Behaviors.receive { (ctx, msg) =>
       msg match {
         case CreateChild(name) =>
           ctx.log.info(s"Creating child with name $name")
           val childRef: ActorRef[String] = ctx.spawn(Child(), name)
           active(childRef)
-        case TellChild(message) =>
+        case _ =>
           ctx.log.info("no child exists right now")
           Behaviors.same
       }
     }
+
+    def apply(): Behavior[Command] = idle
   }
 
   object Child {
@@ -62,6 +70,8 @@ object ChildActors {
     sealed trait Command
     case class CreateChild(name: String)                       extends Command
     case class TellChild(nameOfChild: String, message: String) extends Command
+    case class StopChild(name: String)                         extends Command
+    case object NameChildren                                   extends Command
 
     def active(children: Map[String, ActorRef[String]]): Behavior[Command] = Behaviors.receive { (context, message) =>
       message match {
@@ -71,10 +81,17 @@ object ChildActors {
           active(children.updated(name, ref))
         case TellChild(nameOfChild, message) =>
           children.get(nameOfChild) match {
-            case Some(childRef) => childRef ! message
-            case None           => context.log.error(s"Can't find child of name $nameOfChild")
+            case Some(childRef) =>
+              childRef ! message
+            case None =>
+              context.log.error(s"Can't find child of name $nameOfChild")
           }
-
+          Behaviors.same
+        case StopChild(childName) =>
+          context.log.info(s"[${context.self.path.name}] Removing $childName")
+          active(children.removed(childName))
+        case NameChildren =>
+          context.log.info(s"My children are: ${children.keys.mkString(", ")}")
           Behaviors.same
       }
     }
@@ -101,7 +118,8 @@ object ChildActors {
       parent ! CreateChild("kid1")
       parent ! TellChild("hi there kid")
       parent ! TellChild("hi there kid again")
-      parent ! CreateChild("hi there kid again")
+      parent ! StopChild
+      parent ! TellChild("hi there kid")
 
       // User guardian usually has no behaviour of its own
       Behaviors.empty
@@ -125,6 +143,9 @@ object ChildActors {
       parent ! TellChild("kid2", "hi there kid again")
       parent ! TellChild("kid3", "hi there kid again again")
       parent ! TellChild("fakeKid", "hi there kid again again")
+      parent ! NameChildren
+      parent ! StopChild("kid1")
+      parent ! NameChildren
 
       // User guardian usually has no behaviour of its own
       Behaviors.empty
