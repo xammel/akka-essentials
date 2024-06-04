@@ -8,7 +8,7 @@ object LoggingUtils {
   case object Info  extends LogLevel
   case object Error extends LogLevel
 
-  def logWithName(context: ActorContext[_])(message: String, logLevel: LogLevel = Info): Unit = {
+  def logWithName[A](context: ActorContext[_])(message: A, logLevel: LogLevel = Info): Unit = {
     import context.log
 
     val fullMessage = s"[${context.self.path.name}] $message"
